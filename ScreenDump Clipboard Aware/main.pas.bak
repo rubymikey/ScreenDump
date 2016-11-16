@@ -1,0 +1,388 @@
+unit main;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Forms, Controls, LCLIntf, LCLType, Dialogs, ExtCtrls,
+  Buttons, vinfo, debug, capture, types, transparency; // icon , DateUtils , FileUtil , Menus,
+
+type
+
+  { TForm1 }
+
+  TForm1 = class(TForm)
+    Save: TBitBtn;
+    ImageList1: TImageList;
+    Timer1: TTimer;
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+
+    procedure FormMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure FormResize(Sender: TObject);
+    procedure SaveMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure SaveMouseLeave(Sender: TObject);
+    procedure SaveMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+
+    procedure Timer1Timer(Sender: TObject);
+    procedure SaveDisplayIcon();
+
+  private
+    { private declarations }
+  public
+    { public declarations }
+  end;
+
+var
+  Form1: TForm1;
+  gSound: Boolean;
+
+ procedure TakeCapture(IncludeCursor: Boolean = False; ss: TShiftState = []) ;
+ procedure TimerMode();
+ procedure OpenFolderMode();
+
+
+
+
+implementation
+
+{$R *.lfm}
+
+{ TForm1 }
+
+
+procedure TForm1.FormCreate(Sender: TObject);
+ Var
+  BuildNum : String[12];
+  Info: TVersionInfo;
+  i: byte;
+
+begin
+
+       form1.Constraints.MinHeight:= save.height + save.Top + save.Top;
+       form1.Constraints.MinWidth:=Save.Width + save.left + save.left;
+       form1.Height:=Form1.Constraints.MinHeight;
+       form1.Width:=form1.Constraints.MinWidth;
+       form1.Top:=100;
+       form1.Left:=100;
+
+       form1.Timer1.Enabled:=false;
+
+       form1.ImageList1.GetBitmap(0,form1.Save.Glyph);
+
+       gSound:=true;
+
+       Info := TVersionInfo.Create;
+       Info.Load(HINSTANCE);
+
+       BuildNum := 'v';
+       for i:=0 to 3 do
+           begin
+                BuildNum :=BuildNum +  IntToStr(Info.FixedInfo.FileVersion[i] )+ '.';
+           end;
+
+  // Update the title string - include the version & ver #
+  form1.Caption := 'ScreenDump ' + buildnum  ;
+   Info.Free;
+
+   Debug.Print(Form1.Caption, true);
+
+end;
+
+procedure TForm1.FormDestroy(Sender: TObject);
+begin
+  Debug.Print('ScreenDump App closed', false);
+end;
+
+procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+
+var
+ moveAmount: Byte;
+begin
+
+  if ssCtrl in Shift then
+  begin
+       moveAmount:= 60;
+  end
+  Else
+  begin
+      moveAmount:= 30;
+  end;
+
+case key of
+     lcltype.VK_SPACE,
+     lcltype.VK_RETURN   :begin
+                            TakeCapture(false, shift);
+                            end;
+
+     lcltype.SM_CYFRAME,
+     lcltype.VK_UP       :begin
+                               if  ssShift in shift then
+                                   begin
+                                        form1.Top:=Form1.Top - moveAmount;
+                                   end
+                               else
+                                   begin
+                                        form1.Height:=Form1.Height - moveAmount;
+                                   end;
+                             end;
+
+     lcltype.SM_CXMINTRACK,
+     lcltype.VK_DOWN     :begin
+                                if  ssShift in shift then
+                                   begin
+                                        form1.Top:=Form1.Top + moveAmount;
+                                   end
+                               else
+                                   begin
+                                        form1.Height:=Form1.Height + moveAmount;
+                                   end;
+                                end;
+
+     lcltype.VK_LEFT     :begin
+                               if  ssShift in shift then
+                                   begin
+                                        form1.Left:=Form1.Left - moveAmount;
+                                   end
+                               else
+                                   begin
+                                        form1.Width:=Form1.width - moveAmount;
+                                   end;
+                               end;
+
+     lcltype.VK_RIGHT    :begin
+                               if  ssShift in shift then
+                                   begin
+                                        form1.Left:=Form1.Left + moveAmount;
+                                   end
+                               else
+                                   begin
+                                        form1.width:=Form1.width + moveAmount;;
+                                   end;
+                               end;
+
+     lcltype.vk_S        :begin
+                               gSound:= not(gSound);
+                               end;
+
+
+end;
+
+end;
+
+
+procedure TForm1.FormMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+
+if ssCtrl in Shift then
+   begin
+         form1.Height:=Form1.Height - ((wheelDelta div 10) *2);
+   end
+   Else
+   Begin
+         form1.Height:=Form1.Height - (wheelDelta div 10);
+   end;
+
+
+end;
+
+procedure TForm1.FormResize(Sender: TObject);
+
+begin
+  if ((Form1.Width <= Form1.Constraints.MinWidth) and (Form1.Height <= Form1.Constraints.MinHeight))  then
+       begin
+           transparency.SetTransParent(Form1.Handle, $000FF);
+       end
+  else
+      begin
+           transparency.SetTransParent(Form1.Handle, Form1.Color);
+      end;
+end;
+
+procedure TForm1.SaveMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+
+begin
+
+
+  case Button of
+    mbLeft:
+           begin
+               TakeCapture(false, shift);
+           end;
+    mbMiddle:
+           Begin
+                TimerMode;
+           end;
+
+    mbRight:
+            begin
+                OpenFolderMode;
+            end;
+   end;
+
+
+
+end;
+
+procedure TForm1.SaveMouseLeave(Sender: TObject);
+begin
+    SaveDisplayIcon;
+end;
+
+procedure TForm1.SaveMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+    SaveDisplayIcon;
+end;
+
+procedure TForm1.SaveDisplayIcon();
+begin
+      if form1.Timer1.Enabled then
+      begin
+         form1.ImageList1.GetBitmap(1, form1.Save.Glyph);
+      end
+   else
+       begin
+         form1.ImageList1.GetBitmap(0, form1.Save.Glyph);
+       end;
+end;
+
+
+procedure TForm1.Timer1Timer(Sender: TObject);
+
+var
+  ss_Running: Boolean;
+begin
+ SystemParametersInfo (lcltype.SPI_GETSCREENSAVERRUNNING, 0,
+   @SS_Running, 0);
+
+   if ss_Running then
+        begin
+           debug.Print('ScreenSaver Active');
+        end
+     else
+         begin
+           TakeCapture(True);
+         end;
+
+end;
+
+
+
+procedure TakeCapture(IncludeCursor: Boolean = False; ss: TShiftState= []) ;
+ var
+
+  aCapture: capture.tScreenCapture;
+  outer: boolean;
+
+begin
+      if ssShift in ss then
+      begin
+         outer := true;
+      end
+      else
+      begin
+           outer := false
+      end;
+
+    Debug.Print('Taking Capture', false);
+
+    form1.Visible:=false;
+
+   aCapture:=tScreenCapture.Create;
+
+   getCursorPos(aCapture.MousePosition); //Add current cursor position compared to screen coords
+
+
+    if ((Form1.Width <= Form1.Constraints.MinWidth) and (Form1.Height <= Form1.Constraints.MinHeight))  then
+       begin
+            aCapture.CaptureScreen(IncludeCursor);
+       end
+    else
+        begin
+             //update mousePosition to Form
+             aCapture.MousePosition:= Form1.ScreenToClient(aCapture.MousePosition);
+             aCapture.CaptureArea(form1.BoundsRect, IncludeCursor, outer);
+        end;
+
+        form1.Visible:=true;
+        if form1.Timer1.Enabled = false then
+           begin
+           Form1.BringToFront;
+           end;
+
+
+        if gSound then
+           begin
+           if not(Form1.Timer1.enabled) then
+              begin
+                   sysutils.Beep;
+              end;
+           end;
+
+
+
+      aCapture.SaveCapture();
+
+      aCapture.Free;
+      aCapture:=nil;
+
+    end;
+
+procedure TimerMode();
+
+var
+ timeStr: String;
+ timeInt: word;
+ begin
+
+        try
+
+           if form1.Timer1.Enabled then
+              begin
+                   form1.Save.Caption:='Save';
+
+                   Form1.Timer1.Enabled:=false;
+              end
+           else
+              begin
+
+                   form1.ImageList1.GetBitmap(0, form1.Save.Glyph);
+                   timeStr:= copy(InputBox('Timer Mode','Please type how often capture to be taken (between 1 && 999) in seconds: ', '0'), 0, 3);
+                   timeInt := strtointdef(timestr,0);
+
+                   if not (timeInt = 0) then
+                      begin
+                           Form1.Timer1.Interval:=1000 * timeInt;
+                           Form1.Save.Caption:='Timer';
+                           form1.ImageList1.GetBitmap(1, form1.Save.Glyph);
+                           form1.Timer1.Enabled:=true;
+                      end;
+              end;
+
+        finally
+        end;
+
+ end;
+
+procedure OpenFolderMode();
+begin
+    Debug.Print('Opening Document', false);
+    form1.ImageList1.GetBitmap(2, form1.Save.Glyph);
+    opendocument(DEBUG.GetCurrentFolderPath());
+
+end;
+
+
+
+end.
+
+
